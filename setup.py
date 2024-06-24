@@ -4,6 +4,7 @@ setup(
     name='manimgl_3d',
     version='0.1',
     packages=find_packages(),
+    use_pth=True, # this ensures pylance can locate the module file statically and correctly
     install_requires=[],
     extras_require={
         'dev': ['pytest',],
