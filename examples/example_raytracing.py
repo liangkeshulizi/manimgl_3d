@@ -1,5 +1,5 @@
 from manimlib import *
-from raytracing import *
+from manimgl_3d.pbr import *
 
 class TestRT(RTScene):
     def construct(self):
