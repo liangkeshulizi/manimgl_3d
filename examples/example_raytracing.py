@@ -3,7 +3,6 @@ from manimgl_3d.raytracing import *
 
 class TestRT(RTScene):
     def construct(self):
-        # surface = Sphere(radius = 10).shift(IN * 11)
         sphere1 = SphereRT(ORIGIN, 1)
         sphere2 = SphereRT(RIGHT * 2, 1)
         cube = Cube(color = RED, roughness = .4).shift(OUT * 2)

@@ -1,8 +1,5 @@
 from manimlib import *
 
-# __all__ = ["PBRCamera", "PBRScene"]
-
-
 # TODO: support multiple light sources and light types (other than point light source)
 class PBRCamera(Camera): 
     def refresh_perspective_uniforms(self) -> None:

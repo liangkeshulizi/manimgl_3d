@@ -1,9 +1,9 @@
 from manimlib import *
+from manimgl_3d.shader_compability import MyShaderWrapper
+
 
 class MobjectRT: # Superclass of all Raytracing Mobjects
-    CONFIG = {}
-    def __init__(self, **kwargs):
-        pass
+    pass
 
 class SphereRT(MobjectRT):
     CONFIG = {}
@@ -16,6 +16,6 @@ class SphereRT(MobjectRT):
     # Time-consuming. Try not to call it repeadedly.
     def _get_depth_mask(self, **kwargs) -> Mobject:
         return Sphere(radius = self.radius, **kwargs).shift(self.center)
-    
+        
     def get_shader_data(self):
         pass

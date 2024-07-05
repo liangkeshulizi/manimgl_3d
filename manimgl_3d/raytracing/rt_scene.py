@@ -1,11 +1,10 @@
 from manimlib import *
-from manimlib.shader_wrapper import get_shader_code_from_file
+# from manimlib.shader_wrapper import get_shader_code_from_file
 from typing import List, Union
-import OpenGL.GL as gl
+import OpenGL.GL as gl 
 
 from .mobject_rt import *
-
-# __all__ = ["MyCameraFrame", "RTCamera", "RTScene"]
+from manimgl_3d.shader_compability import get_shader_code_from_file_extended
 
 class MyCameraFrame(CameraFrame): # TODO, rewrite the CameraFrame class, which is too counter-intuitive!
     def get_frame_corner(self, direction):
@@ -30,7 +29,7 @@ class RTCamera(Camera):
 
     def _init_rtshader_program(self):
         def get_code(name):
-            return get_shader_code_from_file(os.path.join(self.rtshader_folder, f"{name}.glsl"))
+            return get_shader_code_from_file_extended(os.path.join(self.rtshader_folder, f"{name}.glsl"))
         self.rtprogram =  self.ctx.program(
                 vertex_shader = get_code("vert"),
                 geometry_shader = get_code("geom"),
@@ -84,8 +83,7 @@ class RTCamera(Camera):
         
         # draw depth masks (of the RTMobject)
         self.set_ctx_depth_test(True)
-        self.fbo.color_mask = False, False, False, False
-        self.fbo_msaa.color_mask = False, False, False, False
+        gl.glColorMask(False, False, False, False)
         
         for mobject_rt in mobjects_rt:
             depth_mask: Mobject = mobject_rt.depth_mask
@@ -96,8 +94,7 @@ class RTCamera(Camera):
                 self.render_mask(render_group)
         
         # draw the non-rt mobjects
-        self.fbo.color_mask = True, True, True, True
-        self.fbo_msaa.color_mask = True, True, True, True
+        gl.glColorMask(True, True, True, True)
         for mobject in mobjects:
             for render_group in self.get_render_group_list(mobject):
                 self.render(render_group)

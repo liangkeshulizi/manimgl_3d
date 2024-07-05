@@ -1,9 +1,6 @@
 from manimlib import *
-
 from .pbr_scene import *
-
-# __all__ = ["SurfacePBR", "SpherePBR", "SquarePBR", "CubePBR",]
-
+from manimgl_3d.shader_compability import MyShaderWrapper
 
 class SurfacePBR(Surface): 
     # 决定所有PBR物体的渲染属性
@@ -34,6 +31,17 @@ class SurfacePBR(Surface):
             "ao": self.ao,
         }
     
+    def init_shader_data(self):
+        self.shader_data = np.zeros(len(self.get_points()), dtype=self.shader_dtype)
+        self.shader_indices = None
+        self.shader_wrapper = MyShaderWrapper( # involving the manimgl_3d/sahder folder
+            vert_data=self.shader_data,
+            shader_folder=self.shader_folder,
+            texture_paths=self.texture_paths,
+            depth_test=self.depth_test,
+            render_primitive=self.render_primitive,
+        )
+    
     def get_shader_data(self):
         s_points, du_points, dv_points = self.get_surface_points_and_nudged_points()
         shader_data = self.get_resized_shader_data_array(len(s_points))
@@ -60,7 +68,6 @@ class SpherePBR(SurfacePBR):
             -np.cos(v)
         ])
 
-
 class SquarePBR(SurfacePBR):
     CONFIG = {
         "side_length": 2,
@@ -75,7 +82,6 @@ class SquarePBR(SurfacePBR):
 
     def uv_func(self, u: float, v: float) -> np.ndarray:
         return np.array([u, v, 0])
-
 
 class CubePBR(SGroup): # not a SurfacePBR, but with SurfacePBR submobjects
     CONFIG = {

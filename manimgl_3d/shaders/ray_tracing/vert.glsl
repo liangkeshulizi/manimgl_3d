@@ -11,6 +11,6 @@ uniform vec2 frame_shape;
 
 void main(){
     coords_v = coords;
-    position = inverse(camera_rotation) * vec3(coords * frame_shape / 2., 0.0) + camera_offset; // right or not?
+    position = inverse(camera_rotation) * vec3(coords * frame_shape / 2., 0.0) + camera_offset;
     gl_Position = vec4(coords, 0.0, 1.0); // Normalized Device Coordinates
 }

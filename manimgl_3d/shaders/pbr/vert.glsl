@@ -59,7 +59,7 @@ void main(){
     Normal = get_surface_unit_normal_vector(point, du_point, dv_point);
     
     // Emit gl position
-    gl_Position = emit_gl_Position(point);
+    emit_gl_Position(point);
 
     // Not sure what this does
     if(clip_plane.xyz != vec3(0.0, 0.0, 0.0)){
