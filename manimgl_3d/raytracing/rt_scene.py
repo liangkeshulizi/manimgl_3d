@@ -5,13 +5,7 @@ import OpenGL.GL as gl
 
 from .mobject_rt import *
 from manimgl_3d.shader_compability import get_shader_code_from_file_extended
-
-class MyCameraFrame(CameraFrame): # TODO, rewrite the CameraFrame class, which is too counter-intuitive!
-    def get_frame_corner(self, direction):
-        coords: np.ndarray = np.sign(direction) * np.array([self.frame_shape[0], self.frame_shape[1], 0.0]) / 2.
-        matrix: np.ndarray = self.get_inverse_camera_rotation_matrix()
-        return self.get_center() + coords.dot(matrix)
-
+from manimgl_3d.camera_frame import MyCameraFrame
 
 class RTCamera(Camera):
     CONFIG = {

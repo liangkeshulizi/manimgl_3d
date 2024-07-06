@@ -1,9 +1,16 @@
-// This is for fixing the z-buffer glitch in the original release of manimgl,
-// which is never used by PBRMobject and MobjectRT itself.
+// TODO: not used yet
+// TODO: this is a hack to fix the z-buffer glitch for the vanilla manimgl Mobjects
 
-shufhuf
 
-const vec2 DEFAULT_FRAME_SHAPE = vec2(8.0 * 16.0 / 9.0, 8.0);
+uniform float is_fixed_in_frame;
+uniform mat4 view;
+uniform float focal_distance;
+
+const float DEFAULT_FRAME_HEIGHT = 8.0;
+const float ASPECT_RATIO = 16.0 / 9.0;
+const float X_SCALE = 2.0 / DEFAULT_FRAME_HEIGHT / ASPECT_RATIO;
+const float Y_SCALE = 2.0 / DEFAULT_FRAME_HEIGHT;
+
 
 float perspective_scale_factor(float z, float focal_distance){
     return max(0.0, focal_distance / (focal_distance - z));
