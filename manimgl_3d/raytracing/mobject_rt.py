@@ -1,5 +1,5 @@
 from manimlib import *
-from manimgl_3d.shader_compability import MyShaderWrapper
+from manimgl_3d.shader_compatibility import MyShaderWrapper
 
 
 class MobjectRT: # Superclass of all Raytracing Mobjects

@@ -55,7 +55,6 @@ vec3 get_surface_unit_normal_vector(vec3 point, vec3 du_point, vec3 dv_point){
 
 void main(){
     Color = color;
-    // Color = vec4(vec3(1.0) * focal_dist_to_height, 1.0); 
     WorldPos = point;
     Normal = get_surface_unit_normal_vector(point, du_point, dv_point);
     

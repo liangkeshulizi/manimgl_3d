@@ -1,15 +1,26 @@
 from manimlib import *
 from .pbr_scene import *
-from manimgl_3d.shader_compability import MyShaderWrapper
+from manimgl_3d.shader_compatibility import *
 
-class SurfacePBR(Surface): 
+class PointLight(Point):
+    #NOTE: this is only a container, and should never be rendered as a mobject
+    CONFIG = {
+        "light_color": np.array([1000.0, 1000.0, 1000.0]),
+    }
+    def set_light_color(self, light_color: np.ndarray) -> None:
+        self.light_color = light_color
+
+    def get_light_color(self) -> np.ndarray:
+        return self.light_color
+
+class SurfacePBR(MobjectShaderCompatibilityMixin, Surface): # MobjectShaderCompatibilityMixin must appear before Mobject in the MRO chain in order to replace its init_shader_data method
+    
     # 决定所有PBR物体的渲染属性
     # shader data 会随着vao和ShaderWrapper传到Camera中，进入顶点着色器
     
     CONFIG = {
         "shader_folder": "pbr",
         "color": BLUE,
-        "albedo": np.array([0.04, 0.04, 0.04]),
         "metallic": 0.0,
         "roughness": 0.3,
         "ao": 0.3,
@@ -21,26 +32,22 @@ class SurfacePBR(Surface):
         ]
     }
 
+    def init_data(self):
+        self.data: dict[str, np.ndarray] = {
+            "points": np.zeros((0, 3)),
+            "bounding_box": np.zeros((3, 3)),
+            "rgbas": np.zeros((1, 4)),
+        }
+    
     def init_uniforms(self):
         self.uniforms= {
             "is_fixed_in_frame": float(self.is_fixed_in_frame),
             "shadow": self.shadow,
-            "albedo": self.albedo,
+            # "albedo": self.albedo,   # implied by color
             "metallic": self.metallic,
             "roughness": self.roughness,
             "ao": self.ao,
         }
-    
-    def init_shader_data(self):
-        self.shader_data = np.zeros(len(self.get_points()), dtype=self.shader_dtype)
-        self.shader_indices = None
-        self.shader_wrapper = MyShaderWrapper( # involving the manimgl_3d/sahder folder
-            vert_data=self.shader_data,
-            shader_folder=self.shader_folder,
-            texture_paths=self.texture_paths,
-            depth_test=self.depth_test,
-            render_primitive=self.render_primitive,
-        )
     
     def get_shader_data(self):
         s_points, du_points, dv_points = self.get_surface_points_and_nudged_points()
@@ -51,11 +58,15 @@ class SurfacePBR(Surface):
             shader_data["dv_point"] = dv_points
         self.fill_in_shader_color_info(shader_data)
         return shader_data
+    
+    def fill_in_shader_color_info(self, shader_data: np.ndarray) -> np.ndarray:
+        self.read_data_to_shader(shader_data, "color", "rgbas")
+        return shader_data
 
 
 class SpherePBR(SurfacePBR):
     CONFIG = {
-        "resolution": (65, 65),
+        "resolution": (101, 51),
         "radius": 1,
         "u_range": (0, TAU),
         "v_range": (0, PI),
@@ -67,6 +78,7 @@ class SpherePBR(SurfacePBR):
             np.sin(u) * np.sin(v),
             -np.cos(v)
         ])
+
 
 class SquarePBR(SurfacePBR):
     CONFIG = {
@@ -82,6 +94,7 @@ class SquarePBR(SurfacePBR):
 
     def uv_func(self, u: float, v: float) -> np.ndarray:
         return np.array([u, v, 0])
+
 
 class CubePBR(SGroup): # not a SurfacePBR, but with SurfacePBR submobjects
     CONFIG = {
@@ -114,4 +127,8 @@ class CubePBR(SGroup): # not a SurfacePBR, but with SurfacePBR submobjects
 
     def _get_face(self) -> SquarePBR:
         return SquarePBR(resolution=self.square_resolution)
-    
+
+
+# TODO
+class ArrowPBR(VMobjectShaderCompatibilityMixin, Arrow):
+    '''Basically the vanilla manim Arrow but compatible with PBR surface objects. '''

@@ -1,7 +1,10 @@
 from manimlib import *
+from .shader_compatibility import MobjectShaderCompatibilityMixin
+
+__all__ = ["MyCameraFrame",]
 
 # TODO, rewrite the whole CameraFrame class, which is too counter-intuitive!
-class MyCameraFrame(CameraFrame):
+class MyCameraFrame(MobjectShaderCompatibilityMixin, CameraFrame):
     def get_scale(self):
         return self.get_height() / self.frame_shape[1] # the frame_shape contains the original shape
 

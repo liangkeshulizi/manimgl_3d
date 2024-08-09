@@ -4,7 +4,7 @@ from typing import List, Union
 import OpenGL.GL as gl 
 
 from .mobject_rt import *
-from manimgl_3d.shader_compability import get_shader_code_from_file_extended
+from manimgl_3d.shader_compatibility import get_shader_code_from_file_extended
 from manimgl_3d.camera_frame import MyCameraFrame
 
 class RTCamera(Camera):
@@ -35,7 +35,7 @@ class RTCamera(Camera):
         With contrast to the rasterization approach, raytracing is done directly on a quad on the screen.
         This method creates the vao/vbo needed for raytracing.
         """
-        coords = np.asarray([
+        coords = np.array([
             1.0, 1.0,
             1.0, -1.0,
             -1.0, 1.0,

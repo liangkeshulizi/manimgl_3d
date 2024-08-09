@@ -5,28 +5,26 @@ const float PI = 3.14159265359;
 //From Camera
 uniform vec3 light_source_position;
 uniform vec3 camera_position;
-// uniform vec3 camera_offset;
-// uniform mat3 camera_rotation;
-// uniform float focal_distance;
+uniform vec3 light_color;
+uniform float bloom_threshold;
 
 // From Vertex Shader
 in vec3 WorldPos;
 in vec4 Color;
 in vec3 Normal;
 
-//From SurfacePBR
+// From SurfacePBR
 uniform float reflectiveness;
 uniform float gloss;
 uniform float shadow;
 
-// material parameters
-uniform vec3 albedo;
+// material parameters (from mobjectPBR -> shaderwrapper)
 uniform float metallic;
 uniform float roughness;
 uniform float ao;
 
-// output to next shader in the pipeline
-out vec4 FragColor;
+layout (location = 0) out vec4 FragColor; // render into hdr_color_buffer
+layout (location = 1) out vec4 BrightColor; // render into hdr_bright_buffer
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
@@ -69,27 +67,25 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 }
 
 void main()
-{	
-    vec3 lightPositions = light_source_position ;
-    vec3 lightColors = vec3(300.0, 300.0, 300.0);
+{
+    vec3 albedo = pow(Color.rgb, vec3(2.2)); // from sRGB to linear space
+    float opacity = Color.a;
 
     vec3 N = normalize(Normal);
     vec3 V = normalize(camera_position - WorldPos);
 
-    // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 
-    // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)    
-    vec3 F0 = vec3(0.04);
-    //F0 = mix(albedo, Color.rgb, metallic);
+    vec3 F0 = vec3(0.04);                      // for dia-electric (like plastic)
+    F0 = mix(F0, albedo, metallic);            // for metal
 
     // reflectance equation
     vec3 Lo = vec3(0.0);
 
         // calculate per-light radiance
-        vec3 L = normalize(lightPositions - WorldPos);
+        vec3 L = normalize(light_source_position - WorldPos);
         vec3 H = normalize(V + L);
-        float distance = length(lightPositions - WorldPos);
+        float distance = length(light_source_position - WorldPos);
         float attenuation = 1.0 / (distance * distance);
-        vec3 radiance = lightColors * attenuation;
+        vec3 radiance = light_color * attenuation;
 
         // Cook-Torrance BRDF
         float NDF = DistributionGGX(N, H, roughness);   
@@ -123,11 +119,12 @@ void main()
 
     vec3 color = ambient + Lo;
 
-    // HDR tonemapping
-    // color = color / (color + vec3(1.0));
+    FragColor = vec4(color, opacity);
 
-    // gamma correct
-    color = pow(color, Color.rgb/2.2); 
-
-    FragColor = vec4(color, Color.a);
+    bool exceed_brightness = dot(color, vec3(0.2126, 0.7152, 0.0722)) > bloom_threshold;
+    if (exceed_brightness){
+        BrightColor = FragColor;
+    } else {
+        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
+    }
 }
