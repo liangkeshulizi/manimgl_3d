@@ -2,26 +2,25 @@
 
 const float PI = 3.14159265359;
 
+// From Vertex Shader
+in vec3 WorldPos;
+in vec3 Normal;
+in vec3 Tangent;
+in vec2 tex_coords_v;
+
 //From Camera
 uniform vec3 light_source_position;
 uniform vec3 camera_position;
 uniform vec3 light_color;
 uniform float bloom_threshold;
 
-// From Vertex Shader
-in vec3 WorldPos;
-in vec4 Color;
-in vec3 Normal;
+// PBR textures (from SurfacePBR.material -> shaderwrapper -> PBRCamera)
+uniform sampler2D tex_albedo;
+uniform sampler2D tex_roughness;
+uniform sampler2D tex_metallic;
+uniform sampler2D tex_ao;
+uniform sampler2D tex_normal;
 
-// From SurfacePBR
-uniform float reflectiveness;
-uniform float gloss;
-uniform float shadow;
-
-// material parameters (from mobjectPBR -> shaderwrapper)
-uniform float metallic;
-uniform float roughness;
-uniform float ao;
 
 layout (location = 0) out vec4 FragColor; // render into hdr_color_buffer
 layout (location = 1) out vec4 BrightColor; // render into hdr_bright_buffer
@@ -66,12 +65,22 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
+vec3 getNewNormal(vec3 mapNormal)
+{
+    vec3 Bitangent = cross(Tangent, Normal);
+    mat3 tbn = mat3(Tangent, Bitangent, Normal);
+    return normalize(tbn * mapNormal);
+}
+
 void main()
 {
-    vec3 albedo = pow(Color.rgb, vec3(2.2)); // from sRGB to linear space
-    float opacity = Color.a;
+    vec3 albedo = pow(texture(tex_albedo, tex_coords_v).rgb, vec3(2.2)); // from sRGB to linear space
+    float roughness = texture(tex_roughness, tex_coords_v).r;
+    float metallic = texture(tex_metallic, tex_coords_v).r;
+    float ao = texture(tex_ao, tex_coords_v).r;
+    vec3 map_normal = texture(tex_normal, tex_coords_v).rgb * 2.0 - 1.0;
 
-    vec3 N = normalize(Normal);
+    vec3 N = getNewNormal(map_normal);
     vec3 V = normalize(camera_position - WorldPos);
 
     vec3 F0 = vec3(0.04);                      // for dia-electric (like plastic)
@@ -119,7 +128,7 @@ void main()
 
     vec3 color = ambient + Lo;
 
-    FragColor = vec4(color, opacity);
+    FragColor = vec4(color, 1.0); //
 
     bool exceed_brightness = dot(color, vec3(0.2126, 0.7152, 0.0722)) > bloom_threshold;
     if (exceed_brightness){

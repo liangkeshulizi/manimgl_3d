@@ -1,0 +1,73 @@
+import numpy as np
+from typing import Union, Optional, Tuple, List
+from functools import cache
+import moderngl as mgl
+from OpenGL.GL import *
+import os
+
+from manimgl_3d.utils.gl_utils import image_path_to_texture, get_solid_texture
+from manimgl_3d.utils.directories_utils import get_manimgl_3d_dir
+
+PropertyValue = Union[float, Tuple[float], List[float], np.ndarray]
+TexturePath = str
+
+class PBRMaterial:
+    supported_types = (float, tuple, list, np.ndarray, str)
+    property_names = ("albedo", "roughness", "metallic", "ao", "height", "normal")  # also the order of tid
+    optional_properties = ("metallic", "ao", "height", "normal")
+
+    def __init__(
+            self,
+            albedo:     Union[PropertyValue, TexturePath],
+            roughness:  Union[PropertyValue, TexturePath],
+            metallic:   Union[PropertyValue, TexturePath] = 0.,
+            ao:         Union[PropertyValue, TexturePath] = 0.3,
+            height:     Union[PropertyValue, TexturePath] = 0.,
+            normal:     Union[PropertyValue, TexturePath] = (0.5, 0.5, 1.)  # * 2 - 1
+    ):
+        for data in (albedo, roughness, metallic, ao, height, normal):
+            if not isinstance(data, self.supported_types):
+                raise TypeError('Unsupported type for material property:', type(data))
+        
+        self._property_data = {
+            "albedo": albedo,
+            "roughness": roughness,
+            "metallic": metallic,
+            "ao": ao,
+            "height": height,
+            "normal": normal,
+        }
+    
+    @cache
+    def get_property_texture(self, context: mgl.Context, property_name: str) -> mgl.Texture:
+        data = self._property_data[property_name]
+        if isinstance(data, str):
+            return image_path_to_texture(context, data)
+        else:
+            return get_solid_texture(context, data)
+    
+    @cache
+    def get_pbr_textures(self, context: mgl.Context) -> list:
+        return [(tid, name, self.get_property_texture(context, name)) for tid, name in enumerate(self.property_names)]
+    
+    # TODO: release textures?
+
+
+def find_contain(str_list, flag):
+    return [string for string in str_list if flag in string]
+
+@cache
+def load_material(directory: str) -> PBRMaterial:
+    file_list = os.listdir(directory)
+
+    kwargs = {}
+    for name in PBRMaterial.property_names:
+        matched_files = find_contain(file_list, '_' + name)
+        if (not matched_files) and (name in PBRMaterial.optional_properties):
+            raise FileNotFoundError(f'{name} texture file not found.')
+        elif len(matched_files) > 1:
+            raise ValueError(f'multiple {name} texture files found.')
+        else:
+            kwargs[name] = os.path.join(directory, matched_files[0])
+    
+    return PBRMaterial(**kwargs)

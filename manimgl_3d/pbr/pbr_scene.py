@@ -1,8 +1,9 @@
 from manimlib import *
 from manimgl_3d.camera_frame import MyCameraFrame
 from manimgl_3d.pbr.surface_pbr import PointLight
-from manimgl_3d.shader_compatibility import get_shader_code_from_file_extended
-from manimgl_3d.utils.gl_utils import render_quad, blit_fbo, gl_blit_fbo
+from manimgl_3d.pbr.material import PBRMaterial
+from manimgl_3d.shader_compatibility import *
+from manimgl_3d.utils.gl_utils import render_quad, blit_fbo, gl_blit_fbo, render_texture_on_quad, get_quad_prog
 
 from OpenGL.GL import * # FIX
 from typing import List
@@ -12,8 +13,8 @@ class PBRCamera(Camera):
     
     CONFIG = {
         'frame_config' : {},
-        'light_source_position': [-10., 10., 10.],
-        'samples': 0,      # for multisampling anti-alias
+        'light_source_position': [2., 2., 5.],
+        'samples': 4,      # for multisampling anti-alias
         'exposure': 1.0,   # for HDR tone mapping
         'bloom': False,
         'bloom_threshold': 1.0,
@@ -154,6 +155,16 @@ class PBRCamera(Camera):
             components=self.n_channels,
             dtype=dtype
         )
+    
+    def set_pbr_textures(self, program: moderngl.Program, material: PBRMaterial):
+        for tid, name, texture  in material.get_pbr_textures(self.ctx):
+            texture.use(location = tid)
+            program['tex_' + name].value = tid
+    
+    def render(self, render_group: dict[str]) -> None:
+        if isinstance(render_group["shader_wrapper"], PBRShaderWrapper):
+            self.set_pbr_textures(render_group["prog"], render_group["shader_wrapper"].material)
+        super().render(render_group)
 
     def capture(self, *mobjects: Mobject): # TODO: support light objects
         self.refresh_perspective_uniforms()
@@ -164,6 +175,16 @@ class PBRCamera(Camera):
         # glDrawBuffers([GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1])
         # BindFramebuffer(GL_FRAMEBUFFER, self->framebuffer_obj)
         
+        # render_texture_on_quad(
+        #     self.ctx,
+        #     mobjects[-1].material.get_property_texture(self.ctx, "ao"),
+        #     self.fbo
+        # )
+        # program = get_quad_prog(self.ctx)
+        # self.fbo.use()
+        # render_quad(self.ctx, program)
+        # return
+
         for mobject in mobjects:
             for render_group in self.get_render_group_list(mobject):
                 self.render(render_group)
@@ -195,6 +216,6 @@ class PBRScene(Scene):
         "camera_class": PBRCamera, # SurfacePBRs should come with CameraPBR
         # TODO: delete it. Implemenet standalong light mobject to determine lighting setups.
         "camera_config":{
-        "light_source_position" : OUT * 5 + LEFT * 5
+            # "light_source_position" : OUT * 5 + LEFT * 5
         }
     }

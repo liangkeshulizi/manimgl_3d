@@ -1,5 +1,6 @@
 from manimlib import *
 from .pbr_scene import *
+from .material import *
 from manimgl_3d.shader_compatibility import *
 
 class PointLight(Point):
@@ -13,23 +14,28 @@ class PointLight(Point):
     def get_light_color(self) -> np.ndarray:
         return self.light_color
 
-class SurfacePBR(MobjectShaderCompatibilityMixin, Surface): # MobjectShaderCompatibilityMixin must appear before Mobject in the MRO chain in order to replace its init_shader_data method
+default_material = PBRMaterial(
+    albedo=color_to_rgb(BLUE),
+    roughness=0.3,
+    metallic=0.0
+)
+
+class SurfacePBR(PBRMobjectShaderCompatibilityMixin, Surface): # MobjectShaderCompatibilityMixin must appear before Mobject in the MRO chain in order to replace its init_shader_data method
     
     # 决定所有PBR物体的渲染属性
     # shader data 会随着vao和ShaderWrapper传到Camera中，进入顶点着色器
     
     CONFIG = {
         "shader_folder": "pbr",
-        "color": BLUE,
-        "metallic": 0.0,
-        "roughness": 0.3,
-        "ao": 0.3,
         "shader_dtype": [
             ('point', np.float32, (3,)),
+            # ('normal', np.float32, (3,)),
+            # ('tangent', np.float32, (3,)),
             ('du_point', np.float32, (3,)),
             ('dv_point', np.float32, (3,)),
-            ('color', np.float32, (4,)),
-        ]
+            ('tex_coords', np.float32, (2,)),  ##
+        ],
+        "material": default_material
     }
 
     def init_data(self):
@@ -37,31 +43,48 @@ class SurfacePBR(MobjectShaderCompatibilityMixin, Surface): # MobjectShaderCompa
             "points": np.zeros((0, 3)),
             "bounding_box": np.zeros((3, 3)),
             "rgbas": np.zeros((1, 4)),
+            "tex_coords": np.zeros((0, 2))
         }
     
+    # Handle uniform data
     def init_uniforms(self):
         self.uniforms= {
             "is_fixed_in_frame": float(self.is_fixed_in_frame),
-            "shadow": self.shadow,
-            # "albedo": self.albedo,   # implied by color
-            "metallic": self.metallic,
-            "roughness": self.roughness,
-            "ao": self.ao,
         }
-    
+
+    def get_normal_and_tangent(self):
+        s_points, du_points, dv_points = self.get_surface_points_and_nudged_points()
+        normal = np.cross((du_points - s_points) / self.epsilon, (dv_points - s_points) / self.epsilon)
+        tangent = du_points
+        return s_points, normal, tangent
+
+    # Handle vertex data
     def get_shader_data(self):
         s_points, du_points, dv_points = self.get_surface_points_and_nudged_points()
         shader_data = self.get_resized_shader_data_array(len(s_points))
+        
         if "points" not in self.locked_data_keys:
             shader_data["point"] = s_points
             shader_data["du_point"] = du_points
             shader_data["dv_point"] = dv_points
-        self.fill_in_shader_color_info(shader_data)
+
+            # TODO: Is it good to calculate normal and tangent in cpu?
+            # shader_data["normal"] = 
+            # shader_data["tangent"] = 
+
+        if "tex_coords" not in self.locked_data_keys:
+            nu, nv = self.resolution
+            shader_data["tex_coords"] = np.array([
+                [u, v]
+                for u in np.linspace(0, 1, nu)
+                for v in np.linspace(1, 0, nv)  # Reverse y-direction
+            ])
+        
         return shader_data
     
-    def fill_in_shader_color_info(self, shader_data: np.ndarray) -> np.ndarray:
-        self.read_data_to_shader(shader_data, "color", "rgbas")
-        return shader_data
+    # abandoned
+    def fill_in_shader_color_info(self, shader_data):
+        raise Exception
 
 
 class SpherePBR(SurfacePBR):
@@ -85,7 +108,7 @@ class SquarePBR(SurfacePBR):
         "side_length": 2,
         "u_range": (-1, 1),
         "v_range": (-1, 1),
-        "resolution": (2, 2),
+        "resolution": (200, 200),
     }
 
     def init_points(self) -> None:
@@ -98,16 +121,15 @@ class SquarePBR(SurfacePBR):
 
 class CubePBR(SGroup): # not a SurfacePBR, but with SurfacePBR submobjects
     CONFIG = {
-        "color": RED,
-        "opacity": 1,
-        "gloss": 0.5,
         "square_resolution": (2, 2),
         "side_length": 2,
         "square_class": SquarePBR,
+        "material": default_material
     }
 
     def init_points(self) -> None:
         face = SquarePBR(
+            material=self.material,
             resolution=self.square_resolution,
             side_length=self.side_length,
         )
@@ -124,10 +146,6 @@ class CubePBR(SGroup): # not a SurfacePBR, but with SurfacePBR submobjects
         ])
         result.append(square.copy().rotate(PI, RIGHT, about_point=ORIGIN))
         return result
-
-    def _get_face(self) -> SquarePBR:
-        return SquarePBR(resolution=self.square_resolution)
-
 
 # TODO
 class ArrowPBR(VMobjectShaderCompatibilityMixin, Arrow):

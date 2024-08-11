@@ -7,14 +7,17 @@ uniform float is_fixed_in_frame;
 uniform float relative_focal_distance;
 uniform mat4 view;
 
+uniform sampler2D tex_height;
+
 in vec3 point;
 in vec3 du_point;
 in vec3 dv_point;
-in vec4 color;
+in vec2 tex_coords;
 
 out vec3 WorldPos;
 out vec3 Normal;
-out vec4 Color;
+out vec3 Tangent;
+out vec2 tex_coords_v;
 
 const float DEFAULT_FRAME_HEIGHT = 8.0;
 const float ASPECT_RATIO = 16.0 / 9.0;
@@ -54,12 +57,18 @@ vec3 get_surface_unit_normal_vector(vec3 point, vec3 du_point, vec3 dv_point){
 }
 
 void main(){
-    Color = color;
+    tex_coords_v = tex_coords;
+
     WorldPos = point;
     Normal = get_surface_unit_normal_vector(point, du_point, dv_point);
+    Tangent = normalize(du_point - point);
+    // Gram–Schmidt process
+    Tangent = normalize(Tangent - dot(Tangent, Normal) * Normal);
     
+    float height = texture(tex_height, tex_coords).r;
+
     // Emit gl position
-    emit_gl_Position(point);
+    emit_gl_Position(point + Normal * height * 0.5);
 
     // if(clip_plane.xyz != vec3(0.0, 0.0, 0.0)){
     //     gl_ClipDistance[0] = dot(vec4(point, 1.0), clip_plane);

@@ -1,11 +1,15 @@
+# Some tedious yet essential compatiblity utils, bridging manimgl_3d and manimlib.
+
 from manimlib import *
-from .utils.directories_utils import get_manimgl_3d_shader_dir
+from manimgl_3d.utils.directories_utils import get_manimgl_3d_shader_dir
 
 __all__ = [
     "get_shader_code_from_file_extended",
     "MyShaderWrapper",
     "MobjectShaderCompatibilityMixin",
     "VMobjectShaderCompatibilityMixin",
+    "PBRShaderWrapper",
+    "PBRMobjectShaderCompatibilityMixin"
 ]
 
 filename_to_code_map = {} # caching seperately, avoiding fetching wrong files
@@ -62,7 +66,6 @@ class MyShaderWrapper(ShaderWrapper):
             "fragment_shader": get_code("frag"),
         }
 
-
 class MobjectShaderCompatibilityMixin:
     def init_shader_data(self):
         self.shader_data = np.zeros(len(self.get_points()), dtype=self.shader_dtype)
@@ -90,3 +93,24 @@ class VMobjectShaderCompatibilityMixin:
             shader_folder=self.stroke_shader_folder,
             render_primitive=self.render_primitive,
         )
+
+class PBRShaderWrapper(MyShaderWrapper):
+    def __init__(self, material, **kwargs):
+        super().__init__(**kwargs)
+        self.material = material
+
+class PBRMobjectShaderCompatibilityMixin:
+    def init_shader_data(self):
+        self.shader_data = np.zeros(len(self.get_points()), dtype=self.shader_dtype)
+        self.shader_indices = None
+        self.shader_wrapper = PBRShaderWrapper(
+            material = self.material,
+            vert_data=self.shader_data,
+            shader_folder=self.shader_folder,
+            texture_paths=self.texture_paths,
+            depth_test=self.depth_test,
+            render_primitive=self.render_primitive,
+        )
+
+class PBRMobjectNormalMixin:
+    pass

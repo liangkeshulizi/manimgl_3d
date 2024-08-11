@@ -5,11 +5,13 @@ import glm
 from OpenGL.GL import *
 import moderngl as mgl
 from functools import cache
+from PIL import Image
+from typing import Union, Sequence
 
 from manimgl_3d.shader_compatibility import get_shader_code_from_file_extended
 
 
-def _texture_my_configure(texture: mgl.Texture) -> None: # abondoned
+def _my_texture_configuration(texture: mgl.Texture) -> None: # abondoned
     glBindTexture(GL_TEXTURE_2D, texture.glo)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
@@ -76,6 +78,22 @@ def render_quad(context: mgl.Context, program: mgl.Program):
     vao = get_quad_vao(context, program)
     vao.render(mgl.TRIANGLE_STRIP)
 
+@cache
+def get_quad_prog(ctx: mgl.Context):
+    return ctx.program(
+        vertex_shader=get_shader_code_from_file_extended('pbr/quad_vert.glsl'),
+        fragment_shader=get_shader_code_from_file_extended('pbr/quad_frag.glsl')
+    )
+
+def render_texture_on_quad(ctx: mgl.Context, texture: mgl.Texture, frambuffer: mgl.Framebuffer):
+    program = get_quad_prog(ctx)
+    
+    frambuffer.use()
+    texture.use(location=0)
+    program['tex_img'] = 0
+
+    render_quad(ctx, program)
+
 
 # implemented with PyopenGL
 def gl_blit_fbo(src_fbo: mgl.Framebuffer, dst_fbo: mgl.Framebuffer, color_buffer_correspond = True, read_color_buffer = None, *,
@@ -121,6 +139,27 @@ def blit_fbo(context: mgl.Context, src_fbo: mgl.Framebuffer, dst_fbo: mgl.Frameb
     # NOTE: CANNOT handle default framebuffer correctly.
     context.copy_framebuffer(dst_fbo, src_fbo)
 
+
+@cache
+def image_path_to_texture(context: mgl.Context, path: str) -> mgl.Texture:
+    im = Image.open(path).convert("RGBA")
+    return context.texture(
+        size=im.size,
+        components=len(im.getbands()), # 4
+        data=im.tobytes()
+    )
+
+def get_solid_texture(context: mgl.Context, value: Union[float, np.ndarray, Sequence[float]], *, dtype = 'f4') -> mgl.Context:
+    # NOTE: Only support float value
+    if isinstance(value, float):
+        value = (value,)
+    data = np.array([*value], dtype = dtype)
+    return context.texture(
+        size = (1,1),
+        components = len(value),
+        data = data.tobytes(),
+        dtype = dtype
+    )
 
 # TODO
 # def gl_guassian_blur(input_texture: mgl.Texture):
