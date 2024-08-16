@@ -149,6 +149,7 @@ def image_path_to_texture(context: mgl.Context, path: str) -> mgl.Texture:
         data=im.tobytes()
     )
 
+# TODO: can't cache because np.ndarray is not hashable
 def get_solid_texture(context: mgl.Context, value: Union[float, np.ndarray, Sequence[float]], *, dtype = 'f4') -> mgl.Context:
     # NOTE: Only support float value
     if isinstance(value, float):

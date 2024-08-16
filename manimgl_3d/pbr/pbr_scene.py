@@ -16,8 +16,13 @@ class PBRCamera(Camera):
         'light_source_position': [2., 2., 5.],
         'samples': 4,      # for multisampling anti-alias
         'exposure': 1.0,   # for HDR tone mapping
-        'bloom': False,
+        
+        # bloom effect related
+        'bloom': True,
         'bloom_threshold': 1.0,
+        'mip_depth': 6,    # You can play around with this value, should not be larger than log2(pixel_width)
+        'bloom_filter_radius': 0.005,
+        'bloom_strength': 0.04,
     }
 
     def __init__(self, *args, **kwargs):
@@ -32,12 +37,16 @@ class PBRCamera(Camera):
             fbo = ctx.detect_framebuffer()
         self.ctx = ctx
         self.fbo = fbo
-        self.set_ctx_blending(True)
+        self.set_ctx_blending(True) # for compatiblity
 
     def init_pbr(self) -> None:
         pw, ph = self.pixel_width, self.pixel_height
 
+        if self.n_channels != 4:
+            raise NotImplementedError('PBRCamera currently only supports 4 components for color buffer (RGBA).')
+
         # HDR MSAA FBO -> hdr_color_buffer_msaa, hdr_bright_buffer_msaa
+        # NOTE: for compatibility with normal Mobjects, use RGBA instead of RGB
         self.hdr_color_buffer_msaa = self.ctx.texture(
                 size=(pw, ph),
                 components=self.n_channels,
@@ -55,14 +64,14 @@ class PBRCamera(Camera):
             depth_attachment = self.ctx.depth_renderbuffer((pw, ph), samples=self.samples)
         )
 
-        # HDR FBO -> hdr_color_buffer, hdr_bright_buffer
+        # HDR FBO -> hdr_color_buffer, hdr_bright_buffer (for resolution)
         self.hdr_color_buffer = self.ctx.texture(
                 size=(pw, ph),
                 components=self.n_channels,
                 internal_format = GL_RGBA16F
             )
         self.hdr_color_buffer.repeat_x, self.hdr_color_buffer.repeat_y = False, False
-        self.hdr_bright_buffer = self.ctx.texture(
+        self.hdr_bright_buffer = self.ctx.texture(  # TODO: Abandoned
             size=(pw, ph),
             components=self.n_channels,
             internal_format = GL_RGBA16F
@@ -73,38 +82,83 @@ class PBRCamera(Camera):
             depth_attachment = self.ctx.depth_renderbuffer((pw, ph))
         )
 
-        # FBO for bloom effect
-        self.fbos_pingpong: List[moderngl.Framebuffer] = []
-        for _ in range(2):
-            pingpang_color_buffer = self.ctx.texture(
-                size=(pw, ph),
-                components=self.n_channels,
-                internal_format = GL_RGBA16F # HDR
+        # # FBO for bloom effect (legacy)
+        # self.fbos_pingpong: List[moderngl.Framebuffer] = []
+        # for _ in range(2):
+        #     pingpang_color_buffer = self.ctx.texture(
+        #         size=(pw, ph),
+        #         components=self.n_channels,
+        #         internal_format = GL_RGBA16F
+        #     )
+        #     pingpang_color_buffer.repeat_x, pingpang_color_buffer.repeat_y = False, False
+        #     fbo_pingpang = self.ctx.framebuffer(color_attachments=(pingpang_color_buffer,), depth_attachment=None)
+        #     self.fbos_pingpong.append(fbo_pingpang)
+
+        # textures and fbo for bloom mipmaps
+        self.mip_chain = [] # large to small
+        for i in range(self.mip_depth):
+            mip_size_float = (pw/2**(i+1), ph/2**(i+1))
+            mip_size_int = (int(pw/2**(i+1)), int(ph/2**(i+1)))
+            
+            mip_map = self.ctx.texture(
+                size = mip_size_int,
+                components = 3, ##
+                internal_format = GL_R11F_G11F_B10F
             )
-            pingpang_color_buffer.repeat_x, pingpang_color_buffer.repeat_y = False, False
-            fbo_pingpang = self.ctx.framebuffer(color_attachments=(pingpang_color_buffer,), depth_attachment=None)
-            self.fbos_pingpong.append(fbo_pingpang)
+            mip_map.repeat_x, mip_map.repeat_y = False, False
+            self.mip_chain.append((mip_size_float, mip_size_int, mip_map))
         
-        # shader programs
+        self.fbo_bloom = self.ctx.framebuffer(
+            color_attachments = (self.mip_chain[0][-1],) # color attachment of fbo_bloom will change dynamically during rendering
+        )
+        
+        # pbr shader program
         self.gaussian_blur_program = self.ctx.program(
             vertex_shader = get_shader_code_from_file_extended('pbr/quad_vert.glsl'),
             fragment_shader = get_shader_code_from_file_extended('pbr/gaussian_blur_frag.glsl')
         )
         
+        # # bloom shader program (legacy)
+        # self.bloom_final_program = self.ctx.program(
+        #     vertex_shader = get_shader_code_from_file_extended('pbr/quad_vert.glsl'),
+        #     fragment_shader = get_shader_code_from_file_extended('pbr/bloom_final_frag.glsl')
+        # )
+        # self.bloom_final_program["hdr_rendered"] = 0  # glUniform1i(0, 0)
+        # self.bloom_final_program["bright_blurred"] = 1  # glUniform1i(1, 1)
+        # self.bloom_final_program['exposure'] = self.exposure
+
+        # bloom downsample shader program
+        self.downsample_program = self.ctx.program(
+            vertex_shader = get_shader_code_from_file_extended('pbr/quad_vert.glsl'),
+            fragment_shader = get_shader_code_from_file_extended('pbr/downsample_frag.glsl')
+        )
+        self.downsample_program["srcTexture"] = 0 # texture
+
+        # bloom upsample shader program
+        self.upsample_program = self.ctx.program(
+            vertex_shader = get_shader_code_from_file_extended('pbr/quad_vert.glsl'),
+            fragment_shader = get_shader_code_from_file_extended('pbr/upsample_frag.glsl')
+        )
+        self.upsample_program["srcTexture"] = 0
+        self.upsample_program["filterRadius"] = self.bloom_filter_radius
+
+        # bloom final shader program
         self.bloom_final_program = self.ctx.program(
             vertex_shader = get_shader_code_from_file_extended('pbr/quad_vert.glsl'),
             fragment_shader = get_shader_code_from_file_extended('pbr/bloom_final_frag.glsl')
         )
-        self.bloom_final_program["hdr_rendered"] = 0  # glUniform1i(0, 0)
-        self.bloom_final_program["bright_blurred"] = 1  # glUniform1i(1, 1)
-        self.bloom_final_program['exposure'] = self.exposure
-        
-        self.no_bloom_final_program = self.ctx.program(
+        self.bloom_final_program["scene"] = 0
+        self.bloom_final_program["bloomBlur"] = 1
+        self.bloom_final_program["exposure"] = self.exposure
+        self.bloom_final_program["bloomStrength"] = self.bloom_strength
+
+        # no bloom shader program (tone mapping + gamma correction)
+        self.hdr_final_program = self.ctx.program(
             vertex_shader = get_shader_code_from_file_extended('pbr/quad_vert.glsl'),
             fragment_shader = get_shader_code_from_file_extended('pbr/no_bloom_final_frag.glsl')
         )
-        self.no_bloom_final_program["hdr_rendered"] = 0
-        self.no_bloom_final_program['exposure'] = self.exposure
+        self.hdr_final_program["hdr_rendered"] = 0
+        self.hdr_final_program['exposure'] = self.exposure
 
     def init_light_source(self):
         self.light_source = PointLight(self.light_source_position)
@@ -146,8 +200,8 @@ class PBRCamera(Camera):
         self.fbo.clear(1., 0., 0., 1.)
         self.fbo_hdr_msaa.clear(0., 0., 0., 1.)
         self.fbo_hdr.clear(0., 0., 0., 1.)
-        self.fbos_pingpong[0].clear(0., 0., 0., 1.)
-        self.fbos_pingpong[1].clear(0., 0., 0., 1.)
+        # self.fbos_pingpong[0].clear(0., 0., 0., 1.)
+        # self.fbos_pingpong[1].clear(0., 0., 0., 1.)
 
     def get_raw_fbo_data(self, dtype: str = 'f1'):
         return self.fbo.read(
@@ -156,14 +210,14 @@ class PBRCamera(Camera):
             dtype=dtype
         )
     
-    def set_pbr_textures(self, program: moderngl.Program, material: PBRMaterial):
+    def use_pbr_textures(self, program: moderngl.Program, material: PBRMaterial):
         for tid, name, texture  in material.get_pbr_textures(self.ctx):
             texture.use(location = tid)
             program['tex_' + name].value = tid
     
     def render(self, render_group: dict[str]) -> None:
         if isinstance(render_group["shader_wrapper"], PBRShaderWrapper):
-            self.set_pbr_textures(render_group["prog"], render_group["shader_wrapper"].material)
+            self.use_pbr_textures(render_group["prog"], render_group["shader_wrapper"].material)
         super().render(render_group)
 
     def capture(self, *mobjects: Mobject): # TODO: support light objects
@@ -190,32 +244,65 @@ class PBRCamera(Camera):
                 self.render(render_group)
 
         glDisable(GL_DEPTH_TEST)
-
+        
         blit_fbo(self.ctx, self.fbo_hdr_msaa, self.fbo_hdr) # resolve from multisampling fbo into the normal fbo
         if self.bloom:
-            self.hdr_bright_buffer.use()
-            self.fbos_pingpong[0].use()
-            render_quad(self.ctx, self.gaussian_blur_program)
-            
-            # glActiveTexture(GL_TEXTURE0)
-            # glBindTexture(GL_TEXTURE_2D, self.fbos_pingpong[0].color_attachments[0].glo)
-            # glActiveTexture(GL_TEXTURE1)
-            # glBindTexture(GL_TEXTURE_2D, self.hdr_color_buffer.glo)
+            self.fbo_bloom.use() # glViewPort(self.mip_chain[0].viewport)
             self.hdr_color_buffer.use(location=0)
-            self.fbos_pingpong[0].color_attachments[0].use(location=1)
+            self.downsample_program["srcResolution"] = (self.pixel_width, self.pixel_height)
+            self.downsample_program["karis_average"] = 1 # enable karis average
+
+            # down sample
+            glDisable(GL_BLEND)
+            for mip_size_float, mip_size_int, mip_map in self.mip_chain:
+                self.fbo_bloom.viewport = (0, 0, *mip_size_int)
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mip_map.glo, 0)
+                
+                render_quad(self.ctx, self.downsample_program)
+                
+                mip_map.use(location=0)
+                self.downsample_program["srcResolution"] = mip_size_float
+                self.downsample_program["karis_average"] = 0
+
+            # up sample
+            # Enable additive blending
+            glEnable(GL_BLEND)
+            glBlendFunc(GL_ONE, GL_ONE)
+            glBlendEquation(GL_FUNC_ADD)
+            
+            for this_mip, next_mip in zip(self.mip_chain[::-1], self.mip_chain[-2::-1]):
+                this_size_f, this_size_i, this_mip_map = this_mip
+                next_size_f, next_size_i, next_mip_map = next_mip
+                
+                this_mip_map.use(location=0)
+                self.fbo_bloom.viewport = (0, 0, *next_size_f)
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, next_mip_map.glo, 0)
+                render_quad(self.ctx, self.upsample_program)
+
+            glDisable(GL_BLEND)
+
+            # final
+            self.hdr_color_buffer.use(location=0)
+            self.mip_chain[0][-1].use(location=1)
             self.fbo.use()
             render_quad(self.ctx, self.bloom_final_program)
+            
+            self.set_ctx_blending(True) # restore blending
+            glBlendEquation(GL_FUNC_ADD)
+            # glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         else:
             self.hdr_color_buffer.use()
             self.fbo.use()
-            render_quad(self.ctx, self.no_bloom_final_program)
+            render_quad(self.ctx, self.hdr_final_program)
 
 
 class PBRScene(Scene):
     CONFIG = {
-        "camera_class": PBRCamera, # SurfacePBRs should come with CameraPBR
-        # TODO: delete it. Implemenet standalong light mobject to determine lighting setups.
-        "camera_config":{
-            # "light_source_position" : OUT * 5 + LEFT * 5
-        }
+        "camera_class": PBRCamera,
+        "camera_config":{},
+        "window_config": {
+            "size": (1920, 1080)
+        },
     }
+
+    # TODO: Implemenet standalong light mobject to determine lighting setups.

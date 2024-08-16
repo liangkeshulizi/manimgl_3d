@@ -49,12 +49,15 @@ class PBRMaterial:
     @cache
     def get_pbr_textures(self, context: mgl.Context) -> list:
         return [(tid, name, self.get_property_texture(context, name)) for tid, name in enumerate(self.property_names)]
+
+    # TODO: fix
+    def get_property_data(self): 
+        return self._property_data # should not change it
     
     # TODO: release textures?
 
-
-def find_contain(str_list, flag):
-    return [string for string in str_list if flag in string]
+def find_contain(str_list, flags):
+    return [string for string in str_list if any([flag in string for flag in flags])]
 
 @cache
 def load_material(directory: str) -> PBRMaterial:
@@ -62,7 +65,7 @@ def load_material(directory: str) -> PBRMaterial:
 
     kwargs = {}
     for name in PBRMaterial.property_names:
-        matched_files = find_contain(file_list, '_' + name)
+        matched_files = find_contain(file_list, ['_' + name, '-' + name])
         if (not matched_files) and (name in PBRMaterial.optional_properties):
             raise FileNotFoundError(f'{name} texture file not found.')
         elif len(matched_files) > 1:

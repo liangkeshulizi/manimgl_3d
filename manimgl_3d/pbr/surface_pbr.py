@@ -108,7 +108,7 @@ class SquarePBR(SurfacePBR):
         "side_length": 2,
         "u_range": (-1, 1),
         "v_range": (-1, 1),
-        "resolution": (200, 200),
+        "resolution": (2, 2)
     }
 
     def init_points(self) -> None:

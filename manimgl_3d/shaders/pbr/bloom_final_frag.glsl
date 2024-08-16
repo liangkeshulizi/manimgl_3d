@@ -1,23 +1,26 @@
 #version 330 core
 
-uniform sampler2D hdr_rendered;
-uniform sampler2D bright_blurred;
+out vec4 FragColor;
+in vec2 tex_coords_v;
+
+uniform sampler2D scene;
+uniform sampler2D bloomBlur;
 
 uniform float exposure;
+uniform float bloomStrength = 0.04f;
 
-in vec2 tex_coords_v;
-out vec4 FragColor;
 
-void main(){
-    // blending
-    vec4 color_hdr = texture(hdr_rendered, tex_coords_v);
-    vec4 color_bright = texture(bright_blurred, tex_coords_v);
-    vec3 color = color_hdr.rgb + color_bright.rgb;
+void main()
+{
+    // bloom mix
+    vec3 hdrColor = texture(scene, tex_coords_v).rgb;
+    vec3 bloomColor = texture(bloomBlur, tex_coords_v).rgb;
+    vec3 result =  mix(hdrColor, bloomColor, bloomStrength); // linear interpolation
     
     // tone mapping
-    vec3 result = vec3(1.0) - exp( - color * exposure );
+    result = vec3(1.0) - exp(-result * exposure);
     
-    // gamma correct
+    // gamma correction
     result = pow(result, vec3(1.0 / 2.2));
     
     FragColor = vec4(result, 1.0);
