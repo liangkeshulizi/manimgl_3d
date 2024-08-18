@@ -1,11 +1,9 @@
 #version 330 core
 
-uniform float anti_alias_width;
-// uniform vec3 camera_offset;
-// uniform mat3 camera_rotation;
 uniform float is_fixed_in_frame;
 uniform float relative_focal_distance;
 uniform mat4 view;
+uniform float height_scale;
 
 uniform sampler2D tex_height;
 
@@ -68,7 +66,7 @@ void main(){
     float height = texture(tex_height, tex_coords).r;
 
     // Emit gl position
-    emit_gl_Position(point + Normal * height * 0.5);
+    emit_gl_Position(point + Normal * height * height_scale);
 
     // if(clip_plane.xyz != vec3(0.0, 0.0, 0.0)){
     //     gl_ClipDistance[0] = dot(vec4(point, 1.0), clip_plane);

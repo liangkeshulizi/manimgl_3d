@@ -14,6 +14,7 @@ class PBRCamera(Camera):
     CONFIG = {
         'frame_config' : {},
         'light_source_position': [2., 2., 5.],
+
         'samples': 4,      # for multisampling anti-alias
         'exposure': 1.0,   # for HDR tone mapping
         
@@ -211,6 +212,7 @@ class PBRCamera(Camera):
         )
     
     def use_pbr_textures(self, program: moderngl.Program, material: PBRMaterial):
+        program['height_scale'] = material.height_scale
         for tid, name, texture  in material.get_pbr_textures(self.ctx):
             texture.use(location = tid)
             program['tex_' + name].value = tid
@@ -301,7 +303,7 @@ class PBRScene(Scene):
         "camera_class": PBRCamera,
         "camera_config":{},
         "window_config": {
-            "size": (1920, 1080)
+            "size": (1920 * 2, 1080 * 2)
         },
     }
 

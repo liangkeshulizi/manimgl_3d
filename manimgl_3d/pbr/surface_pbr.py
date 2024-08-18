@@ -33,9 +33,10 @@ class SurfacePBR(PBRMobjectShaderCompatibilityMixin, Surface): # MobjectShaderCo
             # ('tangent', np.float32, (3,)),
             ('du_point', np.float32, (3,)),
             ('dv_point', np.float32, (3,)),
-            ('tex_coords', np.float32, (2,)),  ##
+            ('tex_coords', np.float32, (2,)),
         ],
-        "material": default_material
+        "material": default_material,
+        "tex_coords_scale": (1.0, 1.0), # u, v  # should remain constant
     }
 
     def init_data(self):
@@ -59,6 +60,15 @@ class SurfacePBR(PBRMobjectShaderCompatibilityMixin, Surface): # MobjectShaderCo
         return s_points, normal, tangent
 
     # Handle vertex data
+    def get_tex_coords(self):
+        nu, nv = self.resolution
+        su, sv = self.tex_coords_scale
+        return np.array([
+                [u, v]
+                for u in np.linspace(0, su, nu)
+                for v in np.linspace(sv, 0, nv)  # Reverse y-direction
+            ])
+
     def get_shader_data(self):
         s_points, du_points, dv_points = self.get_surface_points_and_nudged_points()
         shader_data = self.get_resized_shader_data_array(len(s_points))
@@ -73,18 +83,9 @@ class SurfacePBR(PBRMobjectShaderCompatibilityMixin, Surface): # MobjectShaderCo
             # shader_data["tangent"] = 
 
         if "tex_coords" not in self.locked_data_keys:
-            nu, nv = self.resolution
-            shader_data["tex_coords"] = np.array([
-                [u, v]
-                for u in np.linspace(0, 1, nu)
-                for v in np.linspace(1, 0, nv)  # Reverse y-direction
-            ])
+            shader_data["tex_coords"] = self.get_tex_coords()
         
         return shader_data
-    
-    # abandoned
-    def fill_in_shader_color_info(self, shader_data):
-        raise Exception
 
 
 class SpherePBR(SurfacePBR):

@@ -161,6 +161,3 @@ def get_solid_texture(context: mgl.Context, value: Union[float, np.ndarray, Sequ
         data = data.tobytes(),
         dtype = dtype
     )
-
-# TODO
-# def gl_guassian_blur(input_texture: mgl.Texture):

@@ -23,12 +23,15 @@ class PBRMaterial:
             metallic:   Union[PropertyValue, TexturePath] = 0.,
             ao:         Union[PropertyValue, TexturePath] = 0.3,
             height:     Union[PropertyValue, TexturePath] = 0.,
-            normal:     Union[PropertyValue, TexturePath] = (0.5, 0.5, 1.)  # * 2 - 1
+            normal:     Union[PropertyValue, TexturePath] = (0.5, 0.5, 1.),  # * 2 - 1
+            *,
+            height_scale = 1.0
     ):
         for data in (albedo, roughness, metallic, ao, height, normal):
             if not isinstance(data, self.supported_types):
                 raise TypeError('Unsupported type for material property:', type(data))
         
+        self.height_scale = height_scale
         self._property_data = {
             "albedo": albedo,
             "roughness": roughness,
@@ -50,7 +53,6 @@ class PBRMaterial:
     def get_pbr_textures(self, context: mgl.Context) -> list:
         return [(tid, name, self.get_property_texture(context, name)) for tid, name in enumerate(self.property_names)]
 
-    # TODO: fix
     def get_property_data(self): 
         return self._property_data # should not change it
     
@@ -60,7 +62,7 @@ def find_contain(str_list, flags):
     return [string for string in str_list if any([flag in string for flag in flags])]
 
 @cache
-def load_material(directory: str) -> PBRMaterial:
+def load_material(directory: str, *, height_scale = 1.0) -> PBRMaterial:
     file_list = os.listdir(directory)
 
     kwargs = {}
@@ -73,4 +75,4 @@ def load_material(directory: str) -> PBRMaterial:
         else:
             kwargs[name] = os.path.join(directory, matched_files[0])
     
-    return PBRMaterial(**kwargs)
+    return PBRMaterial(**kwargs, height_scale=height_scale)
