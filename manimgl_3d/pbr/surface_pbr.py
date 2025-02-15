@@ -22,8 +22,8 @@ default_material = PBRMaterial(
 
 class SurfacePBR(PBRMobjectShaderCompatibilityMixin, Surface): # MobjectShaderCompatibilityMixin must appear before Mobject in the MRO chain in order to replace its init_shader_data method
     
-    # 决定所有PBR物体的渲染属性
-    # shader data 会随着vao和ShaderWrapper传到Camera中，进入顶点着色器
+    # Render Configurations affecting all PBR mobjects
+    # shader_data will be passed into Camera via vao & ShaderWrapper, ending up in the vertex shader.
     
     CONFIG = {
         "shader_folder": "pbr",

@@ -5,12 +5,9 @@ setup(
     version='0.1',
     packages=find_packages(),
     use_pth=True, # this ensures pylance can locate the module file statically and correctly
-    install_requires=[],
-    extras_require={
-        'dev': [],
-    },
-    author='liangkeshulizi',
+    install_requires=['manimgl==1.6.1'],
+    author='LIYIZHOU',
     author_email='liangkeshulizi@gmail.com',
-    description='in development...',
+    description='An extension for manimgl, adding advanced render features.',
     # url='',
 )
