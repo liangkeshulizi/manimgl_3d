@@ -9,7 +9,7 @@ An extension for ManimGL, adding advanced rendering features.
 
 ## Introduction
 
-Manim 3D is an extension for ManimGL that provides advanced rendering capabilities, including physically-based rendering (PBR) and support for complex materials and lighting effects. This extension allows you to create highly realistic 3D animations with ease.
+Manim 3D is an extension for [ManimGL](https://github.com/3b1b/manim) that provides advanced rendering capabilities, including physically-based rendering (PBR) and support for complex materials and lighting effects. This extension allows you to create highly realistic 3D animations with ease.
 
 ## Demonstrations
 
@@ -45,13 +45,13 @@ class TestPBRTexture(PBRScene):
         self.wait()
 ```
 
-![](assets/videos/TestPBRTexture.mp4)
-![](assets/videos/TestPBRTexture2.mp4)
-![](assets/videos/TestPBRTexture3.mp4)
+https://github.com/user-attachments/assets/96bdc89c-01de-4287-8bf3-d70afebf9f95
+https://github.com/user-attachments/assets/5673ca2d-a01e-48d1-acab-fc780baa15e4
+https://github.com/user-attachments/assets/3dfbf00f-a7b1-4f82-8d4a-0303eab4c1f8
 
 ## Installation
 
-Make sure you have correctly installed ManimGL 1.6.1, which is the only compatible version.
+Make sure you have correctly installed [ManimGL 1.6.1](https://github.com/3b1b/manim/releases/tag/v1.6.1), which is the only compatible version.
 
 Clone the repository and install the package:
 
