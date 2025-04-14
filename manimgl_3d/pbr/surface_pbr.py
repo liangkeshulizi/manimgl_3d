@@ -4,15 +4,20 @@ from .material import *
 from manimgl_3d.shader_compatibility import *
 
 class PointLight(Point):
-    #NOTE: this is only a container, and should never be rendered as a mobject
+    # NOTE: this is only a container, and should never be rendered as a mobject
     CONFIG = {
         "light_color": np.array([1000.0, 1000.0, 1000.0]),
     }
     def set_light_color(self, light_color: np.ndarray) -> None:
-        self.light_color = light_color
+        assert light_color.shape == (3,)
+        self.light_color[:] = light_color[:]
 
     def get_light_color(self) -> np.ndarray:
         return self.light_color
+    
+    # make sure this is not rendered
+    def get_shader_wrapper_list(self):
+        return []
 
 default_material = PBRMaterial(
     albedo=color_to_rgb(BLUE),

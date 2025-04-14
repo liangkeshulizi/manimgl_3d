@@ -53,7 +53,7 @@ class TestPBR2(PBRScene):
 
 class TestPBRTexture(PBRScene):
     def construct(self):
-        self.camera.light_source.light_color = np.array([2000.0, 2000.0, 2000.0])
+        light = PointLight(light_color = np.array([2000.0, 2000.0, 2000.0]))
 
         brick_wall = SquarePBR(material = material_brick, resolution = (1024, 1024)).scale(5)
         text = Text("Manim3D", weight=BOLD).scale(5).shift(OUT * 1.0).rotate(180*DEGREES,axis=IN).apply_depth_test()
@@ -65,8 +65,8 @@ class TestPBRTexture(PBRScene):
                 10 * np.sin(theta.get_value()),
                 5
             ]))
-        self.camera.light_source.add_updater(light_updater)
-        self.add(brick_wall, theta, self.camera.light_source)
+        light.add_updater(light_updater)
+        self.add(brick_wall, theta, light)
 
         self.play(self.camera.frame.set_phi, 50*DEGREES, run_time = 1)
         self.play(self.camera.frame.set_theta, 180*DEGREES, run_time = 3)
@@ -76,20 +76,29 @@ class TestPBRTexture(PBRScene):
 
 class TestPBRTexture2(PBRScene):
     def construct(self):
-        self.camera.light_source.light_color = np.array([5000.0, 5000.0, 5000.0])
+        light1 = PointLight(light_color = np.array([2000.0, 2000.0, 2000.0]))
+        light2 = PointLight(light_color = np.array([2000.0, 2000.0, 2000.0]))
 
         brick_wall = SquarePBR(material = material_space_ship, resolution = (1024, 1024)).scale(5)
         text = Text("Manim3D", color = RED, weight=BOLD).scale(5).shift(OUT * 1.0).rotate(180*DEGREES,axis=IN).apply_depth_test()
         theta = ValueTracker(0.)
 
-        def light_updater(mob: Mobject):
+        def light1_updater(mob: Mobject):
             mob.move_to(np.array([
                 10 * np.cos(theta.get_value()),
                 10 * np.sin(theta.get_value()),
                 5
             ]))
-        self.camera.light_source.add_updater(light_updater)
-        self.add(brick_wall, theta, self.camera.light_source)
+        def light2_updater(mob: Mobject):
+            mob.move_to(np.array([
+                10 * np.cos(theta.get_value() + 180 * DEGREES),
+                10 * np.sin(theta.get_value() + 180 * DEGREES),
+                5
+            ]))
+        
+        light1.add_updater(light1_updater)
+        light2.add_updater(light2_updater)
+        self.add(brick_wall, theta, light1, light2)
 
         self.play(self.camera.frame.set_phi, 50*DEGREES, run_time = 1)
         self.play(self.camera.frame.set_theta, 180*DEGREES, run_time = 3)
@@ -99,7 +108,7 @@ class TestPBRTexture2(PBRScene):
 
 class TestPBRTexture3(PBRScene):
     def construct(self):
-        self.camera.light_source.light_color = np.array([5000.0, 5000.0, 5000.0])
+        light = PointLight(light_color = np.array([5000.0, 5000.0, 5000.0]))
 
         brick_wall = SquarePBR(material = material_gold, resolution = (1024, 1024)).scale(5)
         text = Text("Manim3D", color = BLUE_A, weight=BOLD).scale(5).shift(OUT * 1.0).apply_depth_test()
@@ -111,8 +120,8 @@ class TestPBRTexture3(PBRScene):
                 5 * np.sin(theta.get_value()),
                 8
             ]))
-        self.camera.light_source.add_updater(light_updater)
-        self.add(brick_wall, theta, self.camera.light_source)
+        light.add_updater(light_updater)
+        self.add(brick_wall, theta, light)
 
         self.play(self.camera.frame.set_phi, 40*DEGREES, run_time = 2)
         self.play(self.camera.frame.set_theta, 180*DEGREES, run_time = 4, rate_func = rush_into)

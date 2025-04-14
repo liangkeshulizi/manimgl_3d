@@ -162,6 +162,9 @@ class PBRCamera(Camera):
         self.hdr_final_program['exposure'] = self.exposure
 
     def init_light_source(self):
+        # NOTE: This light source only affacts non-PBR mobjects. If you want it 
+        # to also affacts PBR mobjects, add it to the scene explicitly:
+        # self.add(self.camera.light_source)
         self.light_source = PointLight(self.light_source_position)
 
     def init_frame(self) -> None:
@@ -191,8 +194,7 @@ class PBRCamera(Camera):
             "light_source_position":    tuple(self.light_source.get_location()),
             
             # specifically for PBR objects
-            "light_color":              tuple(self.light_source.get_light_color()),
-            "relative_focal_distance":  frame.get_focal_distance() / frame.get_scale(), # FIXED: not sure why unscale it, but it just works!
+            "relative_focal_distance":  frame.get_focal_distance() / frame.get_scale(), # FIXME: not sure why unscale it, but it just works!
             "view":                     tuple(view_matrix.T.flatten()), # including frame scaling information
             "bloom_threshold":          self.bloom_threshold
         }
@@ -216,10 +218,28 @@ class PBRCamera(Camera):
         for tid, name, texture  in material.get_pbr_textures(self.ctx):
             texture.use(location = tid)
             program['tex_' + name].value = tid
+
+    def use_light_sources(self, program: moderngl.Program, lights: List[PointLight]):
+        MAX_LIGHTS = 16
+
+        light_count = len(lights)
+        if light_count > MAX_LIGHTS:
+            raise ValueError(f'Too many lights! Got {light_count}, but MAX_LIGHTS is {MAX_LIGHTS}.')
+
+        light_positions = np.zeros((MAX_LIGHTS, 3), dtype='f4')
+        light_colors = np.zeros((MAX_LIGHTS, 3), dtype='f4')
+        for i, light in enumerate(lights):
+            light_positions[i] = light.get_location()
+            light_colors[i] = light.get_light_color()
+        
+        program['light_positions'].write(light_positions.flatten().tobytes())
+        program['light_colors'].write(light_colors.flatten().tobytes())
+        program['light_count'].value = light_count
     
     def render(self, render_group: dict[str]) -> None:
         if isinstance(render_group["shader_wrapper"], PBRShaderWrapper):
             self.use_pbr_textures(render_group["prog"], render_group["shader_wrapper"].material)
+            self.use_light_sources(render_group["prog"], render_group["lights"])
         super().render(render_group)
 
     def capture(self, *mobjects: Mobject): # TODO: support light objects
@@ -241,9 +261,12 @@ class PBRCamera(Camera):
         # render_quad(self.ctx, program)
         # return
 
+        lights = [mobject for mobject in mobjects if isinstance(mobject, PointLight)]
         for mobject in mobjects:
-            for render_group in self.get_render_group_list(mobject):
-                self.render(render_group)
+            if not isinstance(mobject, PointLight):
+                for render_group in self.get_render_group_list(mobject):
+                    render_group["lights"] = lights
+                    self.render(render_group)
 
         glDisable(GL_DEPTH_TEST)
         
@@ -306,5 +329,3 @@ class PBRScene(Scene):
             "size": (1920 * 2, 1080 * 2)
         },
     }
-
-    # TODO: Implemenet standalong light mobject to determine lighting setups.

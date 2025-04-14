@@ -2,16 +2,20 @@
 
 const float PI = 3.14159265359;
 
+#define MAX_LIGHTS 16
+
 // From Vertex Shader
 in vec3 WorldPos;
 in vec3 Normal;
 in vec3 Tangent;
 in vec2 tex_coords_v;
 
-//From Camera
-uniform vec3 light_source_position;
+// From Camera
+uniform vec3 light_positions[MAX_LIGHTS];
+uniform vec3 light_source_position;         // NOT USED, left for compatibility with non-PBR mobjects
+uniform vec3 light_colors[MAX_LIGHTS];
+uniform int light_count;
 uniform vec3 camera_position;
-uniform vec3 light_color;
 uniform float bloom_threshold;
 
 // PBR textures (from SurfacePBR.material -> shaderwrapper -> PBRCamera)
@@ -89,12 +93,14 @@ void main()
     // reflectance equation
     vec3 Lo = vec3(0.0);
 
+    for (int i = 0; i < light_count; i++)
+    {
         // calculate per-light radiance
-        vec3 L = normalize(light_source_position - WorldPos);
+        vec3 L = normalize(light_positions[i] - WorldPos);
         vec3 H = normalize(V + L);
-        float distance = length(light_source_position - WorldPos);
+        float distance = length(light_positions[i] - WorldPos);
         float attenuation = 1.0 / (distance * distance);
-        vec3 radiance = light_color * attenuation;
+        vec3 radiance = light_colors[i] * attenuation;
 
         // Cook-Torrance BRDF
         float NDF = DistributionGGX(N, H, roughness);   
@@ -121,7 +127,8 @@ void main()
 
         // add to outgoing radiance Lo
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;  // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
-    
+    }
+
     // ambient lighting (note that the next IBL tutorial will replace 
     // this ambient lighting with environment lighting).
     vec3 ambient = vec3(0.03) * albedo * ao;
