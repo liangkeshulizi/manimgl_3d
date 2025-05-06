@@ -61,18 +61,18 @@ class PBRMaterial:
 def find_contain(str_list, flags):
     return [string for string in str_list if any([flag in string for flag in flags])]
 
-@cache
 def load_material(directory: str, *, height_scale = 1.0) -> PBRMaterial:
     file_list = os.listdir(directory)
 
     kwargs = {}
     for name in PBRMaterial.property_names:
         matched_files = find_contain(file_list, ['_' + name, '-' + name])
-        if (not matched_files) and (name in PBRMaterial.optional_properties):
-            raise FileNotFoundError(f'{name} texture file not found.')
-        elif len(matched_files) > 1:
-            raise ValueError(f'multiple {name} texture files found.')
-        else:
+        if len(matched_files) == 1:
             kwargs[name] = os.path.join(directory, matched_files[0])
+        elif len(matched_files) > 1:
+            raise ValueError(f'multiple {name} texture files found:', matched_files)
+        else:
+            if name not in PBRMaterial.optional_properties:
+                raise FileNotFoundError(f'{name} texture file not found.')
     
     return PBRMaterial(**kwargs, height_scale=height_scale)

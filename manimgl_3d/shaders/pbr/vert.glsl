@@ -8,8 +8,10 @@ uniform float height_scale;
 uniform sampler2D tex_height;
 
 in vec3 point;
-in vec3 du_point;
-in vec3 dv_point;
+// in vec3 du_point;
+// in vec3 dv_point;
+in vec3 normal;
+in vec3 tangent;
 in vec2 tex_coords;
 
 out vec3 WorldPos;
@@ -58,10 +60,14 @@ void main(){
     tex_coords_v = tex_coords;
 
     WorldPos = point;
-    Normal = get_surface_unit_normal_vector(point, du_point, dv_point);
-    Tangent = normalize(du_point - point);
+
+    // Normal = get_surface_unit_normal_vector(point, du_point, dv_point);
+    Normal = normalize(normal);
+    
     // Gram–Schmidt process
-    Tangent = normalize(Tangent - dot(Tangent, Normal) * Normal);
+    // Tangent = normalize(du_point - point);
+    // Tangent = normalize(Tangent - dot(Tangent, Normal) * Normal);
+    Tangent = normalize(tangent);
     
     float height = texture(tex_height, tex_coords).r;
 

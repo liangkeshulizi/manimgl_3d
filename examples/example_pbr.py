@@ -25,7 +25,7 @@ class TestPBR(PBRScene):
         # arrow = Arrow(2 * LEFT, 2 * RIGHT, color = WHITE, depth_test = True)
 
         self.camera.light_source.set_light_color(np.array([500., 500., 500.]))
-        self.add(surface, cube) #, arrow)
+        self.add(surface, cube, self.camera.light_source)
 
         self.play(GrowFromCenter(sphere), self.camera.frame.set_phi, 70*DEGREES, run_time = 1)
         self.play(self.camera.frame.set_theta, (90+45)*DEGREES, run_time = 3)
@@ -44,7 +44,7 @@ class TestPBR2(PBRScene):
             resolution = (10, 10)
         ).shift(IN*3).scale(0.5)
 
-        self.add(surface, cube)
+        self.add(surface, cube, self.camera.light_source)
 
         self.play(GrowFromCenter(sphere), self.camera.frame.set_phi, 70*DEGREES, run_time = 1)
         self.play(self.camera.frame.set_phi, (90+70)*DEGREES, run_time = 3)
@@ -129,3 +129,43 @@ class TestPBRTexture3(PBRScene):
         self.play(theta.increment_value, 360*DEGREES, run_time = 6, rate_func = linear)
         self.play(Write(text), self.camera.frame.animate.set_phi(360*DEGREES), run_time = 2)
         self.wait()
+
+
+class TestModel(PBRScene):
+    def construct(self):
+
+        light1 = PointLight(
+            location = np.array([15., -15., 10.]),
+            light_color = np.array([1000.0, 1000.0, 1000.0])
+        )
+        light2 = PointLight(
+            location = np.array([-15., -15., -10.]),
+            light_color = np.array([1000.0, 1000.0, 1000.0])
+        )
+        light3 = PointLight(
+            location = np.array([0., 0., 20.]),
+            light_color = np.array([1000.0, 1000.0, 1000.0])
+        )
+
+        small_cube1 = Cube(color = rgb_to_color(np.array([1.0, 1.0, 0.0]))).scale(0.2).move_to(light1)
+        small_cube2 = Cube(color = rgb_to_color(np.array([0.0, 1.0, 1.0]))).scale(0.2).move_to(light2)
+        small_cube3 = Cube(color = rgb_to_color(np.array([1.0, 1.0, 1.0]))).scale(0.2).move_to(light3)
+
+        brickwall = SquarePBR(
+            material = load_material('./assets/brick-wall', height_scale = 0.3),
+            tex_coords_scale = (4.0, 4.0),
+            resolution = (128, 128)
+        ).scale(5).shift(IN*3)
+        
+        model = ModelPBR(
+            model_path = './assets/coffee-cup/obj/coffee_cup_obj.obj',
+            material = load_material('./assets/coffee-cup/material'),
+        ).scale(6).rotate(-90 * DEGREES, LEFT)
+
+        model.move_to(brickwall, IN)
+        model.shift(OUT * 0.2)
+
+        self.add(brickwall, model, light1, light2, light3, small_cube1, small_cube2, small_cube3)
+        self.play(self.camera.frame.set_phi, 70*DEGREES, run_time = 2)
+
+        self.interact()

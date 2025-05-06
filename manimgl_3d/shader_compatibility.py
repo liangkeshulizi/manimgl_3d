@@ -35,8 +35,6 @@ def get_shader_code_from_file_extended(filename: str) -> str | None:
             extensions=[],
         )
     except IOError:
-        if 'vert' in filename or 'frag' in filename:
-            print(f'shader {filename} not found.')  # as a warning
         return None
 
     with open(filepath, "r") as f:
